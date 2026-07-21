@@ -1,0 +1,33 @@
+project:
+  name: "Unifidoc Examples"
+  version: "1.0.0"
+  description: "Example documentation showcasing all supported protocols"
+
+output:
+  dir: "../docs"
+  format: "html"
+  theme: "default"
+
+protocols:
+  - plugin: openapi
+    spec: ./openapi/petstore.yaml
+    enabled: true
+
+  - plugin: websocket
+    spec: ./websocket/chat.yaml
+    enabled: true
+
+  - plugin: grpc
+    spec: ./grpc/user.proto
+    enabled: true
+
+features:
+  search: true
+  interactive: false
+  darkMode: true
+  codeSnippets:
+    languages: ["curl", "javascript", "python", "go"]
+
+server:
+  port: 8080
+  livereload: true

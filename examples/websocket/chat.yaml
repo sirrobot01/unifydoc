@@ -1,0 +1,74 @@
+websocket:
+  url: wss://api.example.com/ws/chat
+  description: Real-time chat WebSocket API
+  version: 1.0.0
+
+  events:
+    - name: message.send
+      direction: send
+      description: Send a chat message to a room
+      payload:
+        type: object
+        properties:
+          text:
+            type: string
+            description: The message text
+          roomId:
+            type: string
+            description: The room ID to send to
+          userId:
+            type: string
+            description: The sender's user ID
+        required:
+          - text
+          - roomId
+          - userId
+      example:
+        text: "Hello, world!"
+        roomId: "room-123"
+        userId: "user-456"
+
+    - name: message.received
+      direction: receive
+      description: Receive a chat message from a room
+      payload:
+        type: object
+        properties:
+          text:
+            type: string
+          roomId:
+            type: string
+          userId:
+            type: string
+          username:
+            type: string
+          timestamp:
+            type: integer
+        required:
+          - text
+          - roomId
+          - userId
+          - timestamp
+      example:
+        text: "Hello, world!"
+        roomId: "room-123"
+        userId: "user-456"
+        username: "John Doe"
+        timestamp: 1704067200
+
+    - name: user.joined
+      direction: receive
+      description: Notification when a user joins a room
+      payload:
+        type: object
+        properties:
+          userId:
+            type: string
+          username:
+            type: string
+          roomId:
+            type: string
+      example:
+        userId: "user-789"
+        username: "Jane Smith"
+        roomId: "room-123"

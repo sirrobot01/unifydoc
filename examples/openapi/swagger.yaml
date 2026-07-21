@@ -1,0 +1,1014 @@
+basePath: /api/v1/
+definitions:
+  auth.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+    type: object
+  client.CreateClientRequest:
+    properties:
+      confirm_password:
+        type: string
+      is_admin:
+        type: boolean
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      password:
+        type: string
+      rate_limit:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    required:
+    - confirm_password
+    - name
+    - password
+    - username
+    type: object
+  client.CreateTokenRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  client.createClientResponse:
+    properties:
+      id:
+        type: string
+      rate_limit:
+        type: string
+      username:
+        type: string
+    type: object
+  client.getClientResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      rate_limit:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+      url:
+        type: string
+      username:
+        type: string
+    type: object
+  client.refreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  errs.Error:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      status_code:
+        type: integer
+    type: object
+  product.ListResponse:
+    properties:
+      count:
+        type: integer
+      has_more:
+        type: boolean
+      limit:
+        type: integer
+      offset:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/product.Response'
+        type: array
+      total:
+        type: integer
+    type: object
+  product.PriceType:
+    enum:
+    - fixed
+    - variable
+    type: string
+    x-enum-comments:
+      PriceTypeFixed: Fixed price for the product
+      PriceTypeVariable: Variable price based on conditions
+    x-enum-varnames:
+    - PriceTypeFixed
+    - PriceTypeVariable
+  product.ProviderProductResponse:
+    properties:
+      external_id:
+        description: Unique ID from the provider
+        type: string
+      fee:
+        type: number
+      id:
+        type: string
+      price:
+        type: number
+      provider_id:
+        type: string
+    type: object
+  product.Response:
+    properties:
+      category:
+        type: string
+      country:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      price_type:
+        $ref: '#/definitions/product.PriceType'
+      provider_products:
+        description: List of products from different providers
+        items:
+          $ref: '#/definitions/product.ProviderProductResponse'
+        type: array
+      service_type:
+        $ref: '#/definitions/product.ServiceType'
+      sub_category:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  product.ServiceType:
+    enum:
+    - airtime
+    - data
+    - bills
+    type: string
+    x-enum-comments:
+      ServiceBills: e.g., electricity, water, tv etc
+    x-enum-varnames:
+    - ServiceAirtime
+    - ServiceData
+    - ServiceBills
+  provider.Balance:
+    properties:
+      balance:
+        type: number
+      id:
+        type: string
+      providerID:
+        type: string
+      serviceType:
+        allOf:
+        - $ref: '#/definitions/product.ServiceType'
+        description: airtime, data, bills
+    type: object
+  provider.Health:
+    properties:
+      checked_at:
+        type: string
+      country:
+        type: string
+      created_at:
+        type: string
+      error_message:
+        type: string
+      id:
+        type: string
+      network:
+        type: string
+      provider_id:
+        type: string
+      response_time_ms:
+        type: integer
+      status:
+        description: healthy, unhealthy, degraded
+        type: string
+    type: object
+  purchase.CustomerResponse:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      recipient:
+        type: string
+    required:
+    - recipient
+    type: object
+  purchase.PurchaseIntentRequest:
+    properties:
+      amount:
+        type: number
+      callback_url:
+        type: string
+      customer:
+        $ref: '#/definitions/purchase.CustomerResponse'
+      metadata:
+        additionalProperties: true
+        type: object
+      product_id:
+        type: string
+      provider:
+        type: string
+      reference:
+        type: string
+    required:
+    - amount
+    - customer
+    type: object
+  purchase.PurchaseRequest:
+    properties:
+      intent_id:
+        type: string
+    required:
+    - intent_id
+    type: object
+  server.healthCheckResponse:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      version:
+        type: string
+    type: object
+  transaction.PurchaseIntent:
+    properties:
+      amount:
+        type: number
+      customer_id:
+        type: string
+      id:
+        type: string
+      quoted_amount:
+        type: number
+    required:
+    - customer_id
+    type: object
+  transaction.Recipient:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      recipient:
+        description: e.g., phone number, account number
+        type: string
+    type: object
+  transaction.TransactionListResponse:
+    properties:
+      has_more:
+        type: boolean
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/transaction.TransactionResponse'
+        type: array
+    type: object
+  transaction.TransactionMeta:
+    additionalProperties: true
+    type: object
+  transaction.TransactionResponse:
+    properties:
+      amount:
+        type: number
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      error_code:
+        type: string
+      error_message:
+        type: string
+      fee:
+        type: number
+      id:
+        type: string
+      message:
+        type: string
+      metadata:
+        $ref: '#/definitions/transaction.TransactionMeta'
+      product_id:
+        type: string
+      provider:
+        type: string
+      recipient:
+        $ref: '#/definitions/transaction.Recipient'
+      reference:
+        type: string
+      status:
+        $ref: '#/definitions/transaction.TransactionStatus'
+      type:
+        $ref: '#/definitions/transaction.TransactionType'
+      updated_at:
+        type: string
+      voucher:
+        type: string
+    type: object
+  transaction.TransactionStatus:
+    enum:
+    - pending
+    - processing
+    - processed
+    - completed
+    - failed
+    - cancelled
+    - refunded
+    type: string
+    x-enum-comments:
+      StatusProcessed: Purchase succeeded, awaiting verification
+    x-enum-varnames:
+    - StatusPending
+    - StatusProcessing
+    - StatusProcessed
+    - StatusCompleted
+    - StatusFailed
+    - StatusCancelled
+    - StatusRefunded
+  transaction.TransactionType:
+    enum:
+    - airtime
+    - data
+    - bills
+    type: string
+    x-enum-varnames:
+    - TypeAirtime
+    - TypeData
+    - TypeBills
+info:
+  contact:
+    email: support@bitnob.com
+    name: Vasco Support
+    url: https://bitnob.com/support
+  description: Vasco is a Bill Payment & Airtime Service(Powered by Bitnob)
+  termsOfService: https://bitnob.com/terms
+  title: Vasco
+  version: "1.0"
+paths:
+  /admin/clients:
+    get:
+      description: Retrieve a list of all clients
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of clients
+          schema:
+            items:
+              $ref: '#/definitions/client.getClientResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      tags:
+      - clients
+    post:
+      consumes:
+      - application/json
+      description: Create a new client with the provided details
+      parameters:
+      - description: Create client request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/client.CreateClientRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created client
+          schema:
+            $ref: '#/definitions/client.createClientResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      tags:
+      - clients
+  /admin/providers/{provider_id}/balances:
+    get:
+      description: Retrieves balance information for all service types of a provider
+      parameters:
+      - description: Provider ID
+        in: path
+        name: provider_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/provider.Balance'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get provider balances
+      tags:
+      - providers
+  /admin/providers/{provider_id}/health/check:
+    post:
+      description: Performs a health check on a provider
+      parameters:
+      - description: Provider ID
+        in: path
+        name: provider_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/provider.Health'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Trigger provider health check
+      tags:
+      - providers
+  /admin/providers/health:
+    get:
+      description: Retrieves the latest health check results for all providers
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/provider.Health'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all-providers health status
+      tags:
+      - providers
+  /admin/providers/health/refresh:
+    post:
+      description: Performs health checks on all providers
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Trigger health checks for all providers
+      tags:
+      - providers
+  /admin/providers/product/check/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Check which provider will be used for a product based on the provided
+        parameters. Return the provider's product details if available.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Provider Product Response
+          schema:
+            $ref: '#/definitions/product.ProviderProductResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Provider not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Check which provider will be used for a product
+      tags:
+      - providers
+  /admin/transactions:
+    get:
+      consumes:
+      - application/json
+      description: List all transactions with optional filters
+      parameters:
+      - description: Offset for pagination (default is 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Number of transactions per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by transaction type (e.g., 'airtime', 'data', 'bills')
+        in: query
+        name: type
+        type: string
+      - description: Filter by transaction provider (e.g., 'flutterwave', 'reloadly')
+        in: query
+        name: provider
+        type: string
+      - description: Filter by transaction status (e.g., 'pending', 'completed', 'failed')
+        in: query
+        name: status
+        type: string
+      - description: Filter by start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter by end date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of transactions
+          schema:
+            $ref: '#/definitions/transaction.TransactionListResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: List All Clients transactions
+      tags:
+      - transactions
+  /admin/transactions/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific transaction by its ID (Admin)
+      parameters:
+      - description: Transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction details
+          schema:
+            $ref: '#/definitions/transaction.TransactionResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Transaction not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Get transaction by ID (Admin)
+      tags:
+      - transactions
+  /createToken:
+    post:
+      consumes:
+      - application/json
+      description: Generate a new API token for the specified client
+      parameters:
+      - description: Create token request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/client.CreateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.TokenResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Client not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      tags:
+      - clients
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check the health of the service
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/server.healthCheckResponse'
+      summary: Health check endpoint
+      tags:
+      - health
+  /products:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve products.
+      parameters:
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: Number of products per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by product category
+        in: query
+        name: category
+        type: string
+      - description: Filter by product sub-category
+        in: query
+        name: sub_category
+        type: string
+      - description: Filter by country code
+        in: query
+        name: country
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of products
+          schema:
+            $ref: '#/definitions/product.ListResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Provider not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Get products
+      tags:
+      - products
+  /products/{product_id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a product by its ID.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product details
+          schema:
+            $ref: '#/definitions/product.Response'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Get product by ID
+      tags:
+      - products
+  /providers/{provider_id}/health:
+    get:
+      description: Retrieves the latest health check results for a provider
+      parameters:
+      - description: Provider ID
+        in: path
+        name: provider_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/provider.Health'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get provider health status
+      tags:
+      - providers
+  /purchase/:
+    post:
+      consumes:
+      - application/json
+      description: Process a purchase request for a product.
+      parameters:
+      - description: Purchase Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/purchase.PurchaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/transaction.TransactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Purchase a product
+      tags:
+      - purchase
+  /purchase/intent:
+    post:
+      consumes:
+      - application/json
+      description: Create a purchase intent for a product.
+      parameters:
+      - description: Purchase Intent Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/purchase.PurchaseIntentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/transaction.PurchaseIntent'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Create Purchase Intent
+      tags:
+      - purchase
+  /refreshToken:
+    post:
+      consumes:
+      - application/json
+      description: Refresh the API token for the specified client
+      parameters:
+      - description: Refresh token request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/client.refreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.TokenResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Client not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      tags:
+      - clients
+  /transactions:
+    get:
+      consumes:
+      - application/json
+      description: List current client's transactions with optional filters
+      parameters:
+      - description: Offset for pagination (default is 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Number of transactions per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by transaction type (e.g., 'airtime', 'data', 'bills')
+        in: query
+        name: type
+        type: string
+      - description: Filter by transaction provider (e.g., 'flutterwave', 'reloadly')
+        in: query
+        name: provider
+        type: string
+      - description: Filter by transaction status (e.g., 'pending', 'completed', 'failed')
+        in: query
+        name: status
+        type: string
+      - description: Filter by start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter by end date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of transactions
+          schema:
+            $ref: '#/definitions/transaction.TransactionListResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: List transactions
+      tags:
+      - transactions
+  /transactions/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific transaction by its ID
+      parameters:
+      - description: Transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction details
+          schema:
+            $ref: '#/definitions/transaction.TransactionResponse'
+        "400":
+          description: Invalid request format or validation failed
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "404":
+          description: Transaction not found
+          schema:
+            $ref: '#/definitions/errs.Error'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errs.Error'
+      summary: Get transaction by ID
+      tags:
+      - transactions
+schemes:
+- http
+- https
+security:
+- ApiKeyAuth: []
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
