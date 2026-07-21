@@ -10,7 +10,10 @@ import (
 )
 
 var (
-	autoDetect bool
+	autoDetect    bool
+	initFramework string
+	initCI        string
+	initWithHooks bool
 )
 
 var initCmd = &cobra.Command{
@@ -22,6 +25,9 @@ var initCmd = &cobra.Command{
 
 func init() {
 	initCmd.Flags().BoolVar(&autoDetect, "auto-detect", false, "auto-detect specification files")
+	initCmd.Flags().StringVar(&initFramework, "framework", "", "scaffold for a framework: express | fastapi | gin | spring")
+	initCmd.Flags().StringVar(&initCI, "ci", "", "also generate a CI workflow: github")
+	initCmd.Flags().BoolVar(&initWithHooks, "with-hooks", false, "install git pre-commit and pre-push hooks")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -35,7 +41,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	var cfg *config.Config
 
-	if autoDetect {
+	switch {
+	case initFramework != "":
+		var err error
+		cfg, err = buildFrameworkConfig(initFramework)
+		if err != nil {
+			return err
+		}
+		if !quiet {
+			fmt.Printf("Scaffolded for %s\n", initFramework)
+		}
+	case autoDetect:
 		// Auto-detect specifications
 		var err error
 		cfg, err = config.DetectAndCreateConfig()
@@ -45,7 +61,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if !quiet {
 			fmt.Printf("Auto-detected %d protocol(s)\n", len(cfg.Protocols))
 		}
-	} else {
+	default:
 		// Create default config
 		cfg = config.DefaultConfig()
 	}
@@ -59,6 +75,30 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Write to file
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	// Optional CI workflow.
+	if initCI != "" {
+		path, err := writeCIWorkflow(initCI)
+		if err != nil {
+			return fmt.Errorf("failed to write CI workflow: %w", err)
+		}
+		if !quiet {
+			fmt.Printf("✓ Created %s\n", path)
+		}
+	}
+
+	// Optional git hooks.
+	if initWithHooks {
+		written, err := installGitHooks()
+		if err != nil {
+			return fmt.Errorf("failed to install git hooks: %w", err)
+		}
+		if !quiet {
+			for _, path := range written {
+				fmt.Printf("✓ Installed %s\n", path)
+			}
+		}
 	}
 
 	if !quiet {

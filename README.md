@@ -221,6 +221,8 @@ Initialize a new Unifidoc project.
 **Flags:**
 - `--auto-detect`: Auto-detect specification files
 - `--framework <name>`: Framework-specific init (express, fastapi, gin, spring)
+- `--ci github`: Also generate a GitHub Actions workflow that builds and deploys docs
+- `--with-hooks`: Install git pre-commit (validate) and pre-push (regenerate) hooks
 
 ### `unifidoc generate`
 
@@ -260,6 +262,24 @@ List all available plugins.
 **Flags:**
 - `--builtin`: Show only built-in plugins
 - `--installed`: Show only installed plugins
+
+### `unifidoc plugin add <plugin>`
+
+Add a built-in protocol plugin to `unifidoc.yaml`, pointing it at a spec file.
+
+**Flags:**
+- `--spec <file>`: Path to the spec file (required)
+- `--template <file>`: Optional custom template
+- `--disabled`: Add the protocol but leave it disabled
+
+### `unifidoc import`
+
+Import a specification from another tool into your project.
+
+**Flags:**
+- `--from <tool>`: Source tool — `postman` (converts a v2.x collection) or `openapi`
+- `--spec <file>`: Path to the source file (required)
+- `--output <file>`: Output spec file (Postman only; defaults to `<name>.api.yaml`)
 
 ## Examples
 
