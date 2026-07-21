@@ -1,13 +1,22 @@
 package grpc
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
+	"github.com/bufbuild/protocompile"
 	"github.com/sirrobot01/unifydoc/internal/ir"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// Plugin implements the gRPC plugin
+// mainFile is the synthetic filename used to compile the in-memory spec.
+const mainFile = "unifidoc_input.proto"
+
+// Plugin implements the gRPC plugin backed by a real .proto parser.
 type Plugin struct{}
 
 // NewPlugin creates a new gRPC plugin
@@ -16,18 +25,13 @@ func NewPlugin() *Plugin {
 }
 
 // Name returns the plugin name
-func (p *Plugin) Name() string {
-	return "grpc"
-}
+func (p *Plugin) Name() string { return "grpc" }
 
 // Version returns the plugin version
-func (p *Plugin) Version() string {
-	return "1.0.0"
-}
+func (p *Plugin) Version() string { return "1.0.0" }
 
-// Validate validates a Protocol Buffer specification
+// Validate performs a lightweight syntactic check on a proto file.
 func (p *Plugin) Validate(spec []byte) error {
-	// Basic validation - check if it looks like a proto file
 	content := string(spec)
 	if !strings.Contains(content, "syntax") && !strings.Contains(content, "service") {
 		return fmt.Errorf("invalid proto file: missing syntax or service declaration")
@@ -35,346 +39,238 @@ func (p *Plugin) Validate(spec []byte) error {
 	return nil
 }
 
-// Parse parses a Protocol Buffer specification and converts it to IR
+// compile parses and links the in-memory proto source into a FileDescriptor.
+func compile(spec []byte) (protoreflect.FileDescriptor, error) {
+	resolver := protocompile.WithStandardImports(&protocompile.SourceResolver{
+		Accessor: func(path string) (io.ReadCloser, error) {
+			if path == mainFile {
+				return io.NopCloser(bytes.NewReader(spec)), nil
+			}
+			return nil, os.ErrNotExist
+		},
+	})
+	compiler := protocompile.Compiler{Resolver: resolver}
+	files, err := compiler.Compile(context.Background(), mainFile)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no proto file compiled")
+	}
+	return files[0], nil
+}
+
+// Parse parses a Protocol Buffer specification and converts it to IR.
 func (p *Plugin) Parse(spec []byte) (*ir.IR, error) {
-	// This is a simplified proto parser
-	// In production, you'd use google.golang.org/protobuf/proto or a full parser
-	content := string(spec)
+	fd, err := compile(spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse proto: %w", err)
+	}
 
 	result := ir.NewIR("grpc")
 	result.Title = "gRPC Service"
-	result.Description = "gRPC service definition"
 	result.Version = "1.0.0"
-
-	// Extract package name
-	packageName := extractPackageName(content)
-	if packageName != "" {
-		result.Metadata["package"] = packageName
+	pkg := string(fd.Package())
+	if pkg != "" {
+		result.Metadata["package"] = pkg
 	}
 
-	// Extract services and RPCs
-	services := p.parseServices(content)
-	for _, service := range services {
-		for _, rpc := range service.RPCs {
-			resource := ir.Resource{
-				Name:        rpc.Name,
-				Path:        fmt.Sprintf("/%s/%s", service.Name, rpc.Name),
-				Method:      "RPC",
-				Description: rpc.Description,
-				Metadata:    make(map[string]interface{}),
-			}
+	services := fd.Services()
+	for i := 0; i < services.Len(); i++ {
+		svc := services.Get(i)
+		if i == 0 {
+			result.Title = string(svc.Name())
+			result.Description = leadingComment(svc)
+		}
 
-			// Store streaming info
-			resource.Metadata["streaming"] = rpc.Streaming
-			resource.Metadata["service"] = service.Name
-			resource.Metadata["request_type"] = rpc.RequestType
-			resource.Metadata["response_type"] = rpc.ResponseType
-
-			// Create simple request/response schemas
-			resource.Request = &ir.Schema{
-				Type:        "object",
-				Description: fmt.Sprintf("Request message: %s", rpc.RequestType),
-				Metadata:    map[string]interface{}{"message_type": rpc.RequestType},
-			}
-
-			resource.Response = &ir.Schema{
-				Type:        "object",
-				Description: fmt.Sprintf("Response message: %s", rpc.ResponseType),
-				Metadata:    map[string]interface{}{"message_type": rpc.ResponseType},
-			}
-
-			result.Resources = append(result.Resources, resource)
+		methods := svc.Methods()
+		for j := 0; j < methods.Len(); j++ {
+			m := methods.Get(j)
+			result.Resources = append(result.Resources, buildRPC(pkg, svc, m))
 		}
 	}
 
-	// Extract messages as types
-	messages := p.parseMessages(content)
-	for _, msg := range messages {
-		typeDef := ir.TypeDef{
-			Name:        msg.Name,
-			Description: msg.Description,
-			Schema:      msg.Schema,
-		}
-		result.Types = append(result.Types, typeDef)
+	// Top-level messages and enums become documented types.
+	msgs := fd.Messages()
+	for i := 0; i < msgs.Len(); i++ {
+		md := msgs.Get(i)
+		result.Types = append(result.Types, ir.TypeDef{
+			Name:        string(md.Name()),
+			Description: leadingComment(md),
+			Schema:      messageToSchema(md, nil),
+		})
+	}
+	enums := fd.Enums()
+	for i := 0; i < enums.Len(); i++ {
+		ed := enums.Get(i)
+		result.Types = append(result.Types, ir.TypeDef{
+			Name:        string(ed.Name()),
+			Description: leadingComment(ed),
+			Schema:      enumToSchema(ed),
+		})
 	}
 
 	return result, nil
 }
 
-// Service represents a gRPC service
-type Service struct {
-	Name        string
-	Description string
-	RPCs        []RPC
+// buildRPC converts a single RPC method into an IR resource with resolved
+// request/response schemas and streaming metadata.
+func buildRPC(pkg string, svc protoreflect.ServiceDescriptor, m protoreflect.MethodDescriptor) ir.Resource {
+	svcPath := string(svc.Name())
+	if pkg != "" {
+		svcPath = pkg + "." + svcPath
+	}
+
+	resource := ir.Resource{
+		Name:        string(m.Name()),
+		Path:        fmt.Sprintf("/%s/%s", svcPath, m.Name()),
+		Method:      "RPC",
+		Description: leadingComment(m),
+		Request:     messageToSchema(m.Input(), nil),
+		Response:    messageToSchema(m.Output(), nil),
+		Metadata:    make(map[string]interface{}),
+	}
+
+	resource.Metadata["streaming"] = streamingMode(m)
+	resource.Metadata["service"] = string(svc.Name())
+	resource.Metadata["request_type"] = string(m.Input().Name())
+	resource.Metadata["response_type"] = string(m.Output().Name())
+	return resource
 }
 
-// RPC represents a gRPC RPC method
-type RPC struct {
-	Name         string
-	Description  string
-	RequestType  string
-	ResponseType string
-	Streaming    string // unary, client_streaming, server_streaming, bidirectional
+func streamingMode(m protoreflect.MethodDescriptor) string {
+	switch {
+	case m.IsStreamingClient() && m.IsStreamingServer():
+		return "bidirectional"
+	case m.IsStreamingClient():
+		return "client_streaming"
+	case m.IsStreamingServer():
+		return "server_streaming"
+	default:
+		return "unary"
+	}
 }
 
-// Message represents a Protocol Buffer message
-type Message struct {
-	Name        string
-	Description string
-	Schema      *ir.Schema
-}
-
-// parseServices extracts services from proto content
-func (p *Plugin) parseServices(content string) []Service {
-	services := make([]Service, 0)
-	lines := strings.Split(content, "\n")
-
-	var currentService *Service
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
-
-		// Detect service start
-		if strings.HasPrefix(line, "service ") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				serviceName := strings.TrimSuffix(parts[1], "{")
-				currentService = &Service{
-					Name: serviceName,
-					RPCs: make([]RPC, 0),
-				}
-
-				// Get description from previous line if it's a comment
-				if i > 0 {
-					prevLine := strings.TrimSpace(lines[i-1])
-					if strings.HasPrefix(prevLine, "//") {
-						currentService.Description = strings.TrimPrefix(prevLine, "//")
-						currentService.Description = strings.TrimSpace(currentService.Description)
-					}
-				}
-			}
-		}
-
-		// Detect RPC
-		if currentService != nil && strings.HasPrefix(line, "rpc ") {
-			rpc := p.parseRPC(line)
-			if rpc != nil {
-				// Get description from previous line
-				if i > 0 {
-					prevLine := strings.TrimSpace(lines[i-1])
-					if strings.HasPrefix(prevLine, "//") {
-						rpc.Description = strings.TrimPrefix(prevLine, "//")
-						rpc.Description = strings.TrimSpace(rpc.Description)
-					}
-				}
-				currentService.RPCs = append(currentService.RPCs, *rpc)
-			}
-		}
-
-		// Detect service end
-		if currentService != nil && strings.HasPrefix(line, "}") {
-			services = append(services, *currentService)
-			currentService = nil
-		}
-	}
-
-	return services
-}
-
-// parseRPC parses an RPC line
-func (p *Plugin) parseRPC(line string) *RPC {
-	// Format: rpc GetUser (GetUserRequest) returns (GetUserResponse);
-	// or: rpc StreamUsers (stream StreamUsersRequest) returns (stream StreamUsersResponse);
-
-	parts := strings.Fields(line)
-	if len(parts) < 5 {
-		return nil
-	}
-
-	rpc := &RPC{
-		Name:      parts[1],
-		Streaming: "unary",
-	}
-
-	// Parse request
-	requestStart := strings.Index(line, "(")
-	requestEnd := strings.Index(line, ")")
-	if requestStart != -1 && requestEnd != -1 {
-		requestPart := line[requestStart+1 : requestEnd]
-		requestPart = strings.TrimSpace(requestPart)
-		if strings.HasPrefix(requestPart, "stream ") {
-			rpc.RequestType = strings.TrimPrefix(requestPart, "stream ")
-			rpc.Streaming = "client_streaming"
-		} else {
-			rpc.RequestType = requestPart
-		}
-	}
-
-	// Parse response
-	returnsIdx := strings.Index(line, "returns")
-	if returnsIdx != -1 {
-		responsePart := line[returnsIdx+7:]
-		responseStart := strings.Index(responsePart, "(")
-		responseEnd := strings.Index(responsePart, ")")
-		if responseStart != -1 && responseEnd != -1 {
-			responsePart = responsePart[responseStart+1 : responseEnd]
-			responsePart = strings.TrimSpace(responsePart)
-			if strings.HasPrefix(responsePart, "stream ") {
-				rpc.ResponseType = strings.TrimPrefix(responsePart, "stream ")
-				if rpc.Streaming == "client_streaming" {
-					rpc.Streaming = "bidirectional"
-				} else {
-					rpc.Streaming = "server_streaming"
-				}
-			} else {
-				rpc.ResponseType = responsePart
-			}
-		}
-	}
-
-	return rpc
-}
-
-// parseMessages extracts messages from proto content
-func (p *Plugin) parseMessages(content string) []Message {
-	messages := make([]Message, 0)
-	lines := strings.Split(content, "\n")
-
-	var currentMessage *Message
-	var currentSchema *ir.Schema
-
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
-
-		// Detect message start
-		if strings.HasPrefix(line, "message ") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				messageName := strings.TrimSuffix(parts[1], "{")
-				currentMessage = &Message{
-					Name: messageName,
-				}
-				currentSchema = &ir.Schema{
-					Type:       "object",
-					Properties: make(map[string]*ir.Schema),
-					Metadata:   make(map[string]interface{}),
-				}
-
-				// Get description from previous line
-				if i > 0 {
-					prevLine := strings.TrimSpace(lines[i-1])
-					if strings.HasPrefix(prevLine, "//") {
-						currentMessage.Description = strings.TrimPrefix(prevLine, "//")
-						currentMessage.Description = strings.TrimSpace(currentMessage.Description)
-					}
-				}
-			}
-		}
-
-		// Parse fields
-		if currentMessage != nil && currentSchema != nil && !strings.HasPrefix(line, "message") && !strings.HasPrefix(line, "}") && line != "" && !strings.HasPrefix(line, "//") {
-			field := p.parseField(line)
-			if field != nil {
-				currentSchema.Properties[field.Name] = field.Schema
-			}
-		}
-
-		// Detect message end
-		if currentMessage != nil && strings.HasPrefix(line, "}") {
-			currentMessage.Schema = currentSchema
-			messages = append(messages, *currentMessage)
-			currentMessage = nil
-			currentSchema = nil
-		}
-	}
-
-	return messages
-}
-
-// parseField parses a message field
-func (p *Plugin) parseField(line string) *struct {
-	Name   string
-	Schema *ir.Schema
-} {
-	// Format: string name = 1;
-	// or: repeated string tags = 2;
-	parts := strings.Fields(line)
-	if len(parts) < 4 {
-		return nil
-	}
-
-	idx := 0
-	repeated := false
-	if parts[0] == "repeated" {
-		repeated = true
-		idx = 1
-	}
-
-	protoType := parts[idx]
-	fieldName := parts[idx+1]
-
+// messageToSchema converts a message descriptor to an IR object schema,
+// recursively resolving nested message fields. The seen set breaks cycles
+// along the current ancestry (e.g. a message that references itself).
+func messageToSchema(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) *ir.Schema {
 	schema := &ir.Schema{
-		Type:     mapProtoTypeToJSON(protoType),
-		Metadata: make(map[string]interface{}),
+		Type:       "object",
+		Properties: make(map[string]*ir.Schema),
+		Metadata:   map[string]interface{}{"message_type": string(md.FullName())},
 	}
+	seen = cloneWith(seen, md.FullName())
 
-	if repeated {
-		schema = &ir.Schema{
-			Type:  "array",
-			Items: schema,
+	fields := md.Fields()
+	var required []string
+	for i := 0; i < fields.Len(); i++ {
+		f := fields.Get(i)
+		s := fieldToSchema(f, seen)
+		if c := leadingComment(f); c != "" {
+			s.Description = c
+		}
+		schema.Properties[string(f.Name())] = s
+		if f.Cardinality() == protoreflect.Required {
+			required = append(required, string(f.Name()))
+		}
+	}
+	schema.Required = required
+	return schema
+}
+
+// fieldToSchema converts a field descriptor, handling maps, repeated fields,
+// nested messages, enums and scalars.
+func fieldToSchema(f protoreflect.FieldDescriptor, seen map[protoreflect.FullName]bool) *ir.Schema {
+	if f.IsMap() {
+		return &ir.Schema{
+			Type:        "object",
+			Description: fmt.Sprintf("map<%s, %s>", scalarType(f.MapKey()), valueLabel(f.MapValue())),
+			Metadata:    map[string]interface{}{"map": true},
 		}
 	}
 
-	return &struct {
-		Name   string
-		Schema *ir.Schema
-	}{
-		Name:   fieldName,
-		Schema: schema,
+	base := scalarOrMessage(f, seen)
+	if f.IsList() {
+		return &ir.Schema{Type: "array", Items: base}
 	}
+	return base
 }
 
-// mapProtoTypeToJSON maps proto types to JSON types
-func mapProtoTypeToJSON(protoType string) string {
-	mapping := map[string]string{
-		"string":   "string",
-		"int32":    "integer",
-		"int64":    "integer",
-		"uint32":   "integer",
-		"uint64":   "integer",
-		"sint32":   "integer",
-		"sint64":   "integer",
-		"fixed32":  "integer",
-		"fixed64":  "integer",
-		"sfixed32": "integer",
-		"sfixed64": "integer",
-		"bool":     "boolean",
-		"float":    "number",
-		"double":   "number",
-		"bytes":    "string",
-	}
-
-	if jsonType, ok := mapping[protoType]; ok {
-		return jsonType
-	}
-	return "object" // For custom message types
-}
-
-// extractPackageName extracts the package name from proto content
-func extractPackageName(content string) string {
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "package ") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return strings.TrimSuffix(parts[1], ";")
-			}
+func scalarOrMessage(f protoreflect.FieldDescriptor, seen map[protoreflect.FullName]bool) *ir.Schema {
+	switch f.Kind() {
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		md := f.Message()
+		if seen[md.FullName()] {
+			// Cycle: reference by name instead of expanding.
+			return &ir.Schema{Type: "object", Ref: string(md.FullName())}
 		}
+		return messageToSchema(md, seen)
+	case protoreflect.EnumKind:
+		return enumToSchema(f.Enum())
+	default:
+		return &ir.Schema{Type: scalarKind(f.Kind())}
 	}
-	return ""
+}
+
+func enumToSchema(ed protoreflect.EnumDescriptor) *ir.Schema {
+	values := ed.Values()
+	enum := make([]interface{}, 0, values.Len())
+	for i := 0; i < values.Len(); i++ {
+		enum = append(enum, string(values.Get(i).Name()))
+	}
+	return &ir.Schema{Type: "string", Enum: enum}
+}
+
+// valueLabel returns a short type label for a map value field.
+func valueLabel(f protoreflect.FieldDescriptor) string {
+	if f.Kind() == protoreflect.MessageKind || f.Kind() == protoreflect.GroupKind {
+		return string(f.Message().Name())
+	}
+	if f.Kind() == protoreflect.EnumKind {
+		return string(f.Enum().Name())
+	}
+	return scalarType(f)
+}
+
+func scalarType(f protoreflect.FieldDescriptor) string {
+	return scalarKind(f.Kind())
+}
+
+func scalarKind(k protoreflect.Kind) string {
+	switch k {
+	case protoreflect.BoolKind:
+		return "boolean"
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		return "number"
+	case protoreflect.Int32Kind, protoreflect.Int64Kind, protoreflect.Uint32Kind,
+		protoreflect.Uint64Kind, protoreflect.Sint32Kind, protoreflect.Sint64Kind,
+		protoreflect.Fixed32Kind, protoreflect.Fixed64Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Sfixed64Kind:
+		return "integer"
+	case protoreflect.StringKind, protoreflect.BytesKind:
+		return "string"
+	default:
+		return "string"
+	}
+}
+
+// leadingComment returns the trimmed leading comment for a descriptor, if any.
+func leadingComment(d protoreflect.Descriptor) string {
+	loc := d.ParentFile().SourceLocations().ByDescriptor(d)
+	return strings.TrimSpace(loc.LeadingComments)
+}
+
+// cloneWith returns a copy of seen with name added, so sibling branches don't
+// share cycle-breaking state.
+func cloneWith(seen map[protoreflect.FullName]bool, name protoreflect.FullName) map[protoreflect.FullName]bool {
+	next := make(map[protoreflect.FullName]bool, len(seen)+1)
+	for k := range seen {
+		next[k] = true
+	}
+	next[name] = true
+	return next
 }
 
 // GetTemplate returns the custom template
-func (p *Plugin) GetTemplate() string {
-	return ""
-}
+func (p *Plugin) GetTemplate() string { return "" }
