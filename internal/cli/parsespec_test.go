@@ -20,12 +20,18 @@ func TestParseProtocolSpecDirMerges(t *testing.T) {
 	write("b.yml", "webhooks:\n  - {name: order.refunded, method: POST, url: https://x/r}\n")
 	write("ignore.txt", "not a spec")
 
+	// A nested file must be discovered too (recursive merge).
+	if err := os.MkdirAll(filepath.Join(dir, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	write(filepath.Join("nested", "c.yaml"), "webhooks:\n  - {name: order.shipped, method: POST, url: https://x/s}\n")
+
 	result, err := parseProtocolSpec(webhook.NewPlugin(), dir)
 	if err != nil {
 		t.Fatalf("parseProtocolSpec(dir) error: %v", err)
 	}
-	if len(result.Resources) != 2 {
-		t.Fatalf("merged resources = %d, want 2", len(result.Resources))
+	if len(result.Resources) != 3 {
+		t.Fatalf("merged resources = %d, want 3 (incl. nested)", len(result.Resources))
 	}
 }
 

@@ -1,6 +1,6 @@
 # Unifidoc
 
-> Unified documentation generator for all protocols
+> Unified API documentation generator for OpenAPI, gRPC, WebSocket, AsyncAPI, webhooks, events & MCP — one plugin-based CLI, one docs site
 
 [![CI](https://github.com/sirrobot01/unifydoc/actions/workflows/ci.yml/badge.svg)](https://github.com/sirrobot01/unifydoc/actions/workflows/ci.yml)
 
@@ -137,9 +137,10 @@ between files (e.g. `import "common.proto";`) resolve. A single file also
 resolves imports relative to its own directory.
 
 > **Directory specs** work for every protocol: if `spec` is a directory, all
-> matching spec files in it are parsed and merged into one section. For gRPC
-> that means joint compilation with import resolution; for the YAML-based
-> protocols it merges `*.yaml`, `*.yml` and `*.json` files.
+> matching spec files in it (searched **recursively**) are parsed and merged
+> into one section. For gRPC that means joint compilation with import
+> resolution; for the YAML-based protocols it merges `*.yaml`, `*.yml` and
+> `*.json` files.
 
 ### 3. WebSocket
 

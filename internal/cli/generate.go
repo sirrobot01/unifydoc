@@ -175,22 +175,24 @@ func parseSpecFile(p plugin.Plugin, path string) (*ir.IR, error) {
 	return result, nil
 }
 
-// parseSpecDir parses every spec file in a directory and merges the results
-// into a single IR so the protocol renders as one section.
+// parseSpecDir parses every spec file in a directory tree (recursively) and
+// merges the results into a single IR so the protocol renders as one section.
 func parseSpecDir(p plugin.Plugin, dir string) (*ir.IR, error) {
-	entries, err := os.ReadDir(dir)
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if specExtensions[strings.ToLower(filepath.Ext(path))] {
+			files = append(files, path)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
-	}
-
-	files := make([]string, 0, len(entries))
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if specExtensions[strings.ToLower(filepath.Ext(e.Name()))] {
-			files = append(files, filepath.Join(dir, e.Name()))
-		}
 	}
 	sort.Strings(files) // deterministic order
 
