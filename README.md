@@ -1,6 +1,6 @@
 # Unifidoc
 
-> Unified API documentation generator for OpenAPI, gRPC, WebSocket, AsyncAPI, webhooks, events & MCP — one plugin-based CLI, one docs site
+> Unified API documentation generator for OpenAPI, gRPC, WebSocket, AsyncAPI, webhooks, events & MCP, one plugin-based CLI, one docs site
 
 [![CI](https://github.com/sirrobot01/unifydoc/actions/workflows/ci.yml/badge.svg)](https://github.com/sirrobot01/unifydoc/actions/workflows/ci.yml)
 
@@ -366,10 +366,10 @@ MIT License - see LICENSE file for details
 
 Unifidoc is under active development. Current parser maturity:
 
-- **OpenAPI** — full OpenAPI 3.x support (via `kin-openapi`).
+- **OpenAPI**: full OpenAPI 3.x support (via `kin-openapi`).
 - **WebSocket, Webhooks, Events, MCP, API, Custom** — supported via Unifidoc's
   YAML schemas.
-- **gRPC / AsyncAPI** — simplified parsers; being deepened toward full `.proto`
+- **gRPC / AsyncAPI**: simplified parsers; being deepened toward full `.proto`
   message resolution and full AsyncAPI 2.x/3.x support.
 
 Code examples are currently HTTP-oriented and are being made protocol-aware
