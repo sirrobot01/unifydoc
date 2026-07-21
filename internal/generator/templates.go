@@ -281,8 +281,8 @@ const appJS = `
     mcp:       { label:'MCP',       tag:'mcp',     color:'oklch(0.62 0.14 190)' },
     custom:    { label:'Custom',    tag:'custom',  color:'oklch(0.62 0.14 268)' }
   };
-  var LANG_ORDER = ['curl', 'javascript', 'python', 'go'];
-  var LANG_LABEL = { curl:'curl', javascript:'js', python:'python', go:'go' };
+  var LANG_ORDER = ['curl', 'grpcurl', 'wscat', 'javascript', 'python', 'go', 'json', 'payload'];
+  var LANG_LABEL = { curl:'curl', grpcurl:'grpcurl', wscat:'wscat', javascript:'js', python:'python', go:'go', json:'json-rpc', payload:'payload' };
 
   function meta(id) { return PROTOCOL_META[id] || { label:id, tag:id, color:'oklch(0.6 0.1 268)' }; }
 

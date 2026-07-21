@@ -146,7 +146,7 @@ func (g *Generator) generateCodeExamples(merged *ir.MergedIR) {
 
 		for i := range protocol.Resources {
 			resource := &protocol.Resources[i]
-			examples := g.exampleGen.Generate(resource, baseURL)
+			examples := g.exampleGen.Generate(resource, protocol.Protocol, baseURL)
 
 			if resource.Metadata == nil {
 				resource.Metadata = make(map[string]interface{})
