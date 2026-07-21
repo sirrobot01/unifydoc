@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/bufbuild/protocompile"
@@ -39,8 +41,10 @@ func (p *Plugin) Validate(spec []byte) error {
 	return nil
 }
 
-// compile parses and links the in-memory proto source into a FileDescriptor.
-func compile(spec []byte) (protoreflect.FileDescriptor, error) {
+// compileSource parses and links the in-memory proto source into a
+// FileDescriptor. Imports other than the well-known types are not resolvable in
+// this mode — use ParsePath for protos with local imports.
+func compileSource(spec []byte) (protoreflect.FileDescriptor, error) {
 	resolver := protocompile.WithStandardImports(&protocompile.SourceResolver{
 		Accessor: func(path string) (io.ReadCloser, error) {
 			if path == mainFile {
@@ -60,57 +64,127 @@ func compile(spec []byte) (protoreflect.FileDescriptor, error) {
 	return files[0], nil
 }
 
-// Parse parses a Protocol Buffer specification and converts it to IR.
+// compilePath compiles a single .proto file or every .proto file in a
+// directory, resolving imports against the file's directory (or the directory
+// itself) so cross-file imports work.
+func compilePath(path string) ([]protoreflect.FileDescriptor, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var importRoot string
+	var inputs []string
+	if info.IsDir() {
+		importRoot = path
+		err = filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.EqualFold(filepath.Ext(p), ".proto") {
+				rel, relErr := filepath.Rel(importRoot, p)
+				if relErr != nil {
+					return relErr
+				}
+				inputs = append(inputs, filepath.ToSlash(rel))
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(inputs) == 0 {
+			return nil, fmt.Errorf("no .proto files found in %s", path)
+		}
+		sort.Strings(inputs)
+	} else {
+		importRoot = filepath.Dir(path)
+		inputs = []string{filepath.Base(path)}
+	}
+
+	resolver := protocompile.WithStandardImports(&protocompile.SourceResolver{
+		ImportPaths: []string{importRoot},
+	})
+	compiler := protocompile.Compiler{Resolver: resolver}
+	compiled, err := compiler.Compile(context.Background(), inputs...)
+	if err != nil {
+		return nil, err
+	}
+
+	fds := make([]protoreflect.FileDescriptor, 0, len(compiled))
+	for _, f := range compiled {
+		fds = append(fds, f)
+	}
+	return fds, nil
+}
+
+// Parse parses a single in-memory Protocol Buffer spec and converts it to IR.
 func (p *Plugin) Parse(spec []byte) (*ir.IR, error) {
-	fd, err := compile(spec)
+	fd, err := compileSource(spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse proto: %w", err)
 	}
+	return buildIR([]protoreflect.FileDescriptor{fd}), nil
+}
 
+// ParsePath parses a .proto file (resolving sibling imports) or an entire
+// directory of .proto files, merging them into a single IR.
+func (p *Plugin) ParsePath(path string) (*ir.IR, error) {
+	fds, err := compilePath(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse proto path %s: %w", path, err)
+	}
+	return buildIR(fds), nil
+}
+
+// buildIR aggregates one or more compiled proto files into a single IR.
+func buildIR(fds []protoreflect.FileDescriptor) *ir.IR {
 	result := ir.NewIR("grpc")
 	result.Title = "gRPC Service"
 	result.Version = "1.0.0"
-	pkg := string(fd.Package())
-	if pkg != "" {
-		result.Metadata["package"] = pkg
-	}
 
-	services := fd.Services()
-	for i := 0; i < services.Len(); i++ {
-		svc := services.Get(i)
-		if i == 0 {
-			result.Title = string(svc.Name())
-			result.Description = leadingComment(svc)
+	titleSet := false
+	for _, fd := range fds {
+		if pkg := string(fd.Package()); pkg != "" {
+			result.Metadata["package"] = pkg
 		}
 
-		methods := svc.Methods()
-		for j := 0; j < methods.Len(); j++ {
-			m := methods.Get(j)
-			result.Resources = append(result.Resources, buildRPC(pkg, svc, m))
+		services := fd.Services()
+		for i := 0; i < services.Len(); i++ {
+			svc := services.Get(i)
+			if !titleSet {
+				result.Title = string(svc.Name())
+				result.Description = leadingComment(svc)
+				titleSet = true
+			}
+			methods := svc.Methods()
+			for j := 0; j < methods.Len(); j++ {
+				result.Resources = append(result.Resources, buildRPC(string(fd.Package()), svc, methods.Get(j)))
+			}
+		}
+
+		// Top-level messages and enums become documented types.
+		msgs := fd.Messages()
+		for i := 0; i < msgs.Len(); i++ {
+			md := msgs.Get(i)
+			result.Types = append(result.Types, ir.TypeDef{
+				Name:        string(md.Name()),
+				Description: leadingComment(md),
+				Schema:      messageToSchema(md, nil),
+			})
+		}
+		enums := fd.Enums()
+		for i := 0; i < enums.Len(); i++ {
+			ed := enums.Get(i)
+			result.Types = append(result.Types, ir.TypeDef{
+				Name:        string(ed.Name()),
+				Description: leadingComment(ed),
+				Schema:      enumToSchema(ed),
+			})
 		}
 	}
 
-	// Top-level messages and enums become documented types.
-	msgs := fd.Messages()
-	for i := 0; i < msgs.Len(); i++ {
-		md := msgs.Get(i)
-		result.Types = append(result.Types, ir.TypeDef{
-			Name:        string(md.Name()),
-			Description: leadingComment(md),
-			Schema:      messageToSchema(md, nil),
-		})
-	}
-	enums := fd.Enums()
-	for i := 0; i < enums.Len(); i++ {
-		ed := enums.Get(i)
-		result.Types = append(result.Types, ir.TypeDef{
-			Name:        string(ed.Name()),
-			Description: leadingComment(ed),
-			Schema:      enumToSchema(ed),
-		})
-	}
-
-	return result, nil
+	return result
 }
 
 // buildRPC converts a single RPC method into an IR resource with resolved

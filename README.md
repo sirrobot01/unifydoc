@@ -127,11 +127,19 @@ Supports OpenAPI 3.x specifications.
 
 ```yaml
 - plugin: grpc
-  spec: ./protos/service.proto
+  spec: ./protos/service.proto   # a single file, or a directory
   enabled: true
 ```
 
-Parses Protocol Buffer (.proto) files.
+Parses Protocol Buffer (`.proto`) files. `spec` may point at a single file or a
+**directory** — a directory compiles every `.proto` together, so imports
+between files (e.g. `import "common.proto";`) resolve. A single file also
+resolves imports relative to its own directory.
+
+> **Directory specs** work for every protocol: if `spec` is a directory, all
+> matching spec files in it are parsed and merged into one section. For gRPC
+> that means joint compilation with import resolution; for the YAML-based
+> protocols it merges `*.yaml`, `*.yml` and `*.json` files.
 
 ### 3. WebSocket
 

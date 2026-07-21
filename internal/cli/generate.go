@@ -3,9 +3,13 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/sirrobot01/unifydoc/internal/config"
 	"github.com/sirrobot01/unifydoc/internal/generator"
+	"github.com/sirrobot01/unifydoc/internal/ir"
 	"github.com/sirrobot01/unifydoc/internal/plugin"
 	"github.com/sirrobot01/unifydoc/internal/plugins/api"
 	"github.com/sirrobot01/unifydoc/internal/plugins/asyncapi"
@@ -105,31 +109,17 @@ func buildDocs(cfg *config.Config, quiet bool) error {
 			continue
 		}
 
-		// Read spec file
-		specData, err := os.ReadFile(protocolCfg.Spec)
+		result, err := parseProtocolSpec(p, protocolCfg.Spec)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", protocolCfg.Spec, err)
-			continue
-		}
-
-		// Validate spec
-		if err := p.Validate(specData); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: validation failed for %s: %v\n", protocolCfg.Spec, err)
-			//continue
-		}
-
-		// Parse spec
-		ir, err := p.Parse(specData)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: parsing failed for %s: %v\n", protocolCfg.Spec, err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 			continue
 		}
 
 		// Add to generator
-		gen.AddIR(ir)
+		gen.AddIR(result)
 
 		if !quiet {
-			fmt.Printf("  ✓ Parsed %d resources\n", len(ir.Resources))
+			fmt.Printf("  ✓ Parsed %d resources\n", len(result.Resources))
 		}
 	}
 
@@ -139,6 +129,110 @@ func buildDocs(cfg *config.Config, quiet bool) error {
 	}
 
 	return nil
+}
+
+// specExtensions are the file types treated as specs when a protocol points at
+// a directory (gRPC handles its own .proto discovery via PathParser).
+var specExtensions = map[string]bool{".yaml": true, ".yml": true, ".json": true}
+
+// parseProtocolSpec parses a protocol's configured spec into a single IR. It
+// supports three cases: plugins that implement PathParser (which handle files
+// and directories themselves), a directory of specs (parsed and merged), and a
+// single spec file.
+func parseProtocolSpec(p plugin.Plugin, specPath string) (*ir.IR, error) {
+	// Plugins that need filesystem access handle the path directly.
+	if pp, ok := p.(plugin.PathParser); ok {
+		result, err := pp.ParsePath(specPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing failed for %s: %w", specPath, err)
+		}
+		return result, nil
+	}
+
+	info, err := os.Stat(specPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", specPath, err)
+	}
+	if info.IsDir() {
+		return parseSpecDir(p, specPath)
+	}
+	return parseSpecFile(p, specPath)
+}
+
+// parseSpecFile reads, validates and parses a single spec file.
+func parseSpecFile(p plugin.Plugin, path string) (*ir.IR, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
+	}
+	if err := p.Validate(data); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: validation failed for %s: %v\n", path, err)
+	}
+	result, err := p.Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("parsing failed for %s: %w", path, err)
+	}
+	return result, nil
+}
+
+// parseSpecDir parses every spec file in a directory and merges the results
+// into a single IR so the protocol renders as one section.
+func parseSpecDir(p plugin.Plugin, dir string) (*ir.IR, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
+	}
+
+	files := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if specExtensions[strings.ToLower(filepath.Ext(e.Name()))] {
+			files = append(files, filepath.Join(dir, e.Name()))
+		}
+	}
+	sort.Strings(files) // deterministic order
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no spec files found in %s", dir)
+	}
+
+	var merged *ir.IR
+	for _, f := range files {
+		got, err := parseSpecFile(p, f)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			continue
+		}
+		merged = mergeIR(merged, got)
+	}
+	if merged == nil {
+		return nil, fmt.Errorf("no spec files in %s could be parsed", dir)
+	}
+	return merged, nil
+}
+
+// mergeIR combines src into dst, aggregating resources, types, servers and
+// security. The first non-empty title/description/version wins.
+func mergeIR(dst, src *ir.IR) *ir.IR {
+	if dst == nil {
+		return src
+	}
+	dst.Resources = append(dst.Resources, src.Resources...)
+	dst.Types = append(dst.Types, src.Types...)
+	dst.Servers = append(dst.Servers, src.Servers...)
+	dst.Security = append(dst.Security, src.Security...)
+	if dst.Title == "" {
+		dst.Title = src.Title
+	}
+	if dst.Description == "" {
+		dst.Description = src.Description
+	}
+	if dst.Version == "" {
+		dst.Version = src.Version
+	}
+	return dst
 }
 
 func registerPlugins(manager *plugin.Manager) error {

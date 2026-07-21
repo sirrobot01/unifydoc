@@ -20,6 +20,15 @@ type Plugin interface {
 	GetTemplate() string
 }
 
+// PathParser is an optional interface for plugins that need filesystem access
+// rather than a single in-memory spec — for example to resolve imports between
+// files, or to parse a whole directory of specs. When a plugin implements it,
+// the generator calls ParsePath with the configured spec path (file or dir)
+// instead of reading the bytes itself.
+type PathParser interface {
+	ParsePath(path string) (*ir.IR, error)
+}
+
 // Metadata represents plugin metadata
 type Metadata struct {
 	Name        string   `json:"name"`

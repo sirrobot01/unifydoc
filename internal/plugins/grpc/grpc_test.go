@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirrobot01/unifydoc/internal/ir"
@@ -154,6 +156,94 @@ func TestParseInvalid(t *testing.T) {
 	p := NewPlugin()
 	if _, err := p.Parse([]byte("syntax = \"proto3\"; this is not valid")); err == nil {
 		t.Error("Parse() should error on malformed proto")
+	}
+}
+
+const commonProto = `
+syntax = "proto3";
+package shop;
+// Money is an amount in a currency.
+message Money {
+  string currency = 1;
+  int64 amount = 2;
+}
+`
+
+const ordersProto = `
+syntax = "proto3";
+package shop;
+import "common.proto";
+// OrderService manages orders.
+service OrderService {
+  // Create an order.
+  rpc CreateOrder (CreateOrderRequest) returns (Order);
+}
+message CreateOrderRequest {
+  string sku = 1;
+  Money price = 2;
+}
+message Order {
+  string id = 1;
+  Money total = 2;
+}
+`
+
+func TestParsePathDirectoryResolvesImports(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "common.proto"), []byte(commonProto), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "orders.proto"), []byte(ordersProto), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := NewPlugin().ParsePath(dir)
+	if err != nil {
+		t.Fatalf("ParsePath(dir) error: %v", err)
+	}
+
+	create := findResource(result, "CreateOrder")
+	if create == nil {
+		t.Fatal("CreateOrder missing")
+	}
+	// The imported Money message must resolve inside the request field.
+	price := create.Request.Properties["price"]
+	if price == nil || price.Properties["currency"] == nil {
+		t.Fatalf("imported Money not resolved into request: %+v", price)
+	}
+	// Types from both files should be present.
+	if findType(result, "Money") == nil {
+		t.Error("Money type (from common.proto) missing")
+	}
+	if findType(result, "Order") == nil {
+		t.Error("Order type (from orders.proto) missing")
+	}
+}
+
+func TestParsePathSingleFileWithSiblingImport(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "common.proto"), []byte(commonProto), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ordersPath := filepath.Join(dir, "orders.proto")
+	if err := os.WriteFile(ordersPath, []byte(ordersProto), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pointing at the single file must still resolve its sibling import.
+	result, err := NewPlugin().ParsePath(ordersPath)
+	if err != nil {
+		t.Fatalf("ParsePath(file) error: %v", err)
+	}
+	create := findResource(result, "CreateOrder")
+	if create == nil || create.Request.Properties["price"] == nil {
+		t.Fatalf("single-file ParsePath should resolve sibling import: %+v", result.Resources)
+	}
+}
+
+func TestParsePathMissing(t *testing.T) {
+	if _, err := NewPlugin().ParsePath(filepath.Join(t.TempDir(), "nope")); err == nil {
+		t.Error("ParsePath should error on a missing path")
 	}
 }
 
