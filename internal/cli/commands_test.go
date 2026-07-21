@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/sirrobot01/unifydoc/internal/config"
@@ -162,7 +163,9 @@ func TestWriteCIWorkflowAndHooks(t *testing.T) {
 			t.Errorf("hook missing: %v", err)
 			continue
 		}
-		if info.Mode().Perm()&0100 == 0 {
+		// Windows filesystems do not carry the Unix executable bit (and git on
+		// Windows does not require it), so only assert it elsewhere.
+		if runtime.GOOS != "windows" && info.Mode().Perm()&0100 == 0 {
 			t.Errorf("hook %s is not executable", filepath.Base(h))
 		}
 	}
