@@ -31,13 +31,13 @@ func (m *Merger) Merge() (*MergedIR, error) {
 	}
 
 	merged := &MergedIR{
-		Protocols: make([]*IR, 0),
-		AllServers: make([]Server, 0),
+		Protocols:    make([]*IR, 0),
+		AllServers:   make([]Server, 0),
 		AllResources: make([]Resource, 0),
-		AllTypes: make([]TypeDef, 0),
-		AllSecurity: make([]SecurityScheme, 0),
-		Navigation: make([]NavigationItem, 0),
-		SearchIndex: make([]SearchEntry, 0),
+		AllTypes:     make([]TypeDef, 0),
+		AllSecurity:  make([]SecurityScheme, 0),
+		Navigation:   make([]NavigationItem, 0),
+		SearchIndex:  make([]SearchEntry, 0),
 	}
 
 	// Add all protocols
@@ -119,21 +119,21 @@ func (m *Merger) groupResourcesByTags(resources []Resource) map[string][]Resourc
 
 // MergedIR represents the unified IR from all protocols
 type MergedIR struct {
-	Protocols    []*IR             `json:"protocols"`
-	AllServers   []Server          `json:"all_servers"`
-	AllResources []Resource        `json:"all_resources"`
-	AllTypes     []TypeDef         `json:"all_types"`
-	AllSecurity  []SecurityScheme  `json:"all_security"`
-	Navigation   []NavigationItem  `json:"navigation"`
-	SearchIndex  []SearchEntry     `json:"search_index"`
+	Protocols    []*IR            `json:"protocols"`
+	AllServers   []Server         `json:"all_servers"`
+	AllResources []Resource       `json:"all_resources"`
+	AllTypes     []TypeDef        `json:"all_types"`
+	AllSecurity  []SecurityScheme `json:"all_security"`
+	Navigation   []NavigationItem `json:"navigation"`
+	SearchIndex  []SearchEntry    `json:"search_index"`
 }
 
 // NavigationItem represents a protocol in the navigation
 type NavigationItem struct {
-	Protocol string             `json:"protocol"`
-	Title    string             `json:"title"`
-	Count    int                `json:"count"`
-	Children []NavigationChild  `json:"children"`
+	Protocol string            `json:"protocol"`
+	Title    string            `json:"title"`
+	Count    int               `json:"count"`
+	Children []NavigationChild `json:"children"`
 }
 
 // NavigationChild represents a grouped section within a protocol

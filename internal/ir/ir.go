@@ -51,33 +51,33 @@ type Parameter struct {
 
 // Schema represents a data schema
 type Schema struct {
-	Type        string                `json:"type"`
-	Format      string                `json:"format,omitempty"`
-	Description string                `json:"description,omitempty"`
-	Properties  map[string]*Schema    `json:"properties,omitempty"`
-	Items       *Schema               `json:"items,omitempty"`
-	Required    []string              `json:"required,omitempty"`
-	Enum        []interface{}         `json:"enum,omitempty"`
-	Example     interface{}           `json:"example,omitempty"`
-	Default     interface{}           `json:"default,omitempty"`
-	Ref         string                `json:"$ref,omitempty"`
-	AllOf       []*Schema             `json:"allOf,omitempty"`
-	AnyOf       []*Schema             `json:"anyOf,omitempty"`
-	OneOf       []*Schema             `json:"oneOf,omitempty"`
-	Not         *Schema               `json:"not,omitempty"`
-	Nullable    bool                  `json:"nullable,omitempty"`
-	ReadOnly    bool                  `json:"readOnly,omitempty"`
-	WriteOnly   bool                  `json:"writeOnly,omitempty"`
-	Deprecated  bool                  `json:"deprecated,omitempty"`
+	Type        string                 `json:"type"`
+	Format      string                 `json:"format,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Properties  map[string]*Schema     `json:"properties,omitempty"`
+	Items       *Schema                `json:"items,omitempty"`
+	Required    []string               `json:"required,omitempty"`
+	Enum        []interface{}          `json:"enum,omitempty"`
+	Example     interface{}            `json:"example,omitempty"`
+	Default     interface{}            `json:"default,omitempty"`
+	Ref         string                 `json:"$ref,omitempty"`
+	AllOf       []*Schema              `json:"allOf,omitempty"`
+	AnyOf       []*Schema              `json:"anyOf,omitempty"`
+	OneOf       []*Schema              `json:"oneOf,omitempty"`
+	Not         *Schema                `json:"not,omitempty"`
+	Nullable    bool                   `json:"nullable,omitempty"`
+	ReadOnly    bool                   `json:"readOnly,omitempty"`
+	WriteOnly   bool                   `json:"writeOnly,omitempty"`
+	Deprecated  bool                   `json:"deprecated,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Response represents an HTTP response or protocol response
 type Response struct {
-	Description string            `json:"description"`
-	Headers     map[string]Header `json:"headers,omitempty"`
+	Description string             `json:"description"`
+	Headers     map[string]Header  `json:"headers,omitempty"`
 	Content     map[string]*Schema `json:"content,omitempty"`
-	Schema      *Schema           `json:"schema,omitempty"`
+	Schema      *Schema            `json:"schema,omitempty"`
 }
 
 // Header represents an HTTP header
@@ -107,14 +107,14 @@ type TypeDef struct {
 
 // SecurityScheme represents an authentication/authorization scheme
 type SecurityScheme struct {
-	Type             string            `json:"type"` // http, apiKey, oauth2, openIdConnect
-	Scheme           string            `json:"scheme,omitempty"`
-	BearerFormat     string            `json:"bearerFormat,omitempty"`
-	Description      string            `json:"description"`
-	Name             string            `json:"name,omitempty"`
-	In               string            `json:"in,omitempty"` // query, header, cookie
-	Flows            *OAuthFlows       `json:"flows,omitempty"`
-	OpenIDConnectURL string            `json:"openIdConnectUrl,omitempty"`
+	Type             string      `json:"type"` // http, apiKey, oauth2, openIdConnect
+	Scheme           string      `json:"scheme,omitempty"`
+	BearerFormat     string      `json:"bearerFormat,omitempty"`
+	Description      string      `json:"description"`
+	Name             string      `json:"name,omitempty"`
+	In               string      `json:"in,omitempty"` // query, header, cookie
+	Flows            *OAuthFlows `json:"flows,omitempty"`
+	OpenIDConnectURL string      `json:"openIdConnectUrl,omitempty"`
 }
 
 // OAuthFlows represents OAuth 2.0 flows

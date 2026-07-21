@@ -61,9 +61,9 @@ func (m *Manager) List() []Metadata {
 	list := make([]Metadata, 0, len(m.plugins))
 	for _, plugin := range m.plugins {
 		metadata := Metadata{
-			Name:     plugin.Name(),
-			Version:  plugin.Version(),
-			BuiltIn:  true, // All plugins are built-in for now
+			Name:      plugin.Name(),
+			Version:   plugin.Version(),
+			BuiltIn:   true, // All plugins are built-in for now
 			Protocols: []string{plugin.Name()},
 		}
 		list = append(list, metadata)

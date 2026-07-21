@@ -2,11 +2,11 @@ package config
 
 // Config represents the complete Unifidoc configuration
 type Config struct {
-	Project   ProjectConfig   `yaml:"project" json:"project"`
-	Output    OutputConfig    `yaml:"output" json:"output"`
+	Project   ProjectConfig    `yaml:"project" json:"project"`
+	Output    OutputConfig     `yaml:"output" json:"output"`
 	Protocols []ProtocolConfig `yaml:"protocols" json:"protocols"`
-	Features  FeaturesConfig  `yaml:"features" json:"features"`
-	Server    ServerConfig    `yaml:"server" json:"server"`
+	Features  FeaturesConfig   `yaml:"features" json:"features"`
+	Server    ServerConfig     `yaml:"server" json:"server"`
 }
 
 // ProjectConfig represents project-level configuration
@@ -34,9 +34,9 @@ type ProtocolConfig struct {
 
 // FeaturesConfig represents feature flags
 type FeaturesConfig struct {
-	Search       bool              `yaml:"search" json:"search"`
-	Interactive  bool              `yaml:"interactive" json:"interactive"`
-	DarkMode     bool              `yaml:"darkMode" json:"darkMode"`
+	Search       bool               `yaml:"search" json:"search"`
+	Interactive  bool               `yaml:"interactive" json:"interactive"`
+	DarkMode     bool               `yaml:"darkMode" json:"darkMode"`
 	CodeSnippets CodeSnippetsConfig `yaml:"codeSnippets" json:"codeSnippets"`
 }
 

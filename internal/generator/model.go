@@ -30,20 +30,20 @@ type docProtocol struct {
 }
 
 type docResource struct {
-	ID              string       `json:"id"`
-	Name            string       `json:"name"`
-	Method          string       `json:"method"`
-	Path            string       `json:"path"`
-	Description     string       `json:"description"`
-	Tags            []string     `json:"tags"`
-	Deprecated      bool         `json:"deprecated"`
-	Params          []docParam   `json:"params"`
-	Body            []docParam   `json:"body"`
-	Responses       []docResponse `json:"responses"`
-	Security        []docAuth    `json:"security"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	Method          string            `json:"method"`
+	Path            string            `json:"path"`
+	Description     string            `json:"description"`
+	Tags            []string          `json:"tags"`
+	Deprecated      bool              `json:"deprecated"`
+	Params          []docParam        `json:"params"`
+	Body            []docParam        `json:"body"`
+	Responses       []docResponse     `json:"responses"`
+	Security        []docAuth         `json:"security"`
 	Code            map[string]string `json:"code"`
-	ResponseStatus  string       `json:"responseStatus"`
-	ResponseExample string       `json:"responseExample"`
+	ResponseStatus  string            `json:"responseStatus"`
+	ResponseExample string            `json:"responseExample"`
 }
 
 type docParam struct {

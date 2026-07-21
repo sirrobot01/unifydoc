@@ -7,8 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// version is the current unifidoc version. Kept in sync with the root command.
-const version = "1.0.0"
+// version is the current unifidoc version. It defaults to a development value
+// and is overridden at release time via -ldflags "-X ...cli.version=<tag>".
+var version = "1.0.0"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",

@@ -2,6 +2,8 @@
 
 > Unified documentation generator for all protocols
 
+[![CI](https://github.com/sirrobot01/unifydoc/actions/workflows/ci.yml/badge.svg)](https://github.com/sirrobot01/unifydoc/actions/workflows/ci.yml)
+
 Unifidoc is a powerful CLI tool that generates unified, professional documentation from multiple protocol specifications through a plugin-based architecture. It supports OpenAPI, gRPC, WebSocket, AsyncAPI, Webhooks, Events, MCP, and custom protocols.
 
 ## Features
@@ -16,6 +18,12 @@ Unifidoc is a powerful CLI tool that generates unified, professional documentati
 - **Modern UI**: Responsive three-column reference layout (nav · content · code panel)
 
 ## Installation
+
+### Prebuilt Binaries
+
+Download a binary for your platform from the
+[Releases](https://github.com/sirrobot01/unifydoc/releases) page (Linux, macOS,
+and Windows; amd64 and arm64).
 
 ### Using Go
 
