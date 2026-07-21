@@ -294,7 +294,8 @@ const appJS = `
 
   function badgeFor(method) {
     var m = (method || '').toUpperCase();
-    var map = { DELETE:'DEL', RECEIVE:'RECV', BIDIRECTIONAL:'BIDI', RESOURCE:'RES', EVENT:'EVT' };
+    var map = { DELETE:'DEL', RECEIVE:'RECV', BIDIRECTIONAL:'BIDI', RESOURCE:'RES', EVENT:'EVT',
+      PUBLISH:'PUB', SUBSCRIBE:'SUB' };
     if (map[m]) return map[m];
     if (m.length > 5) return m.slice(0, 4);
     return m || 'GET';
@@ -310,7 +311,7 @@ const appJS = `
     if (m === 'RPC' || m === 'MSG') return 'oklch(0.62 0.12 220)';
     if (m === 'EVENT') return 'oklch(0.62 0.12 320)';
     if (m === 'TOOL' || m === 'RESOURCE' || m === 'PROMPT') return 'oklch(0.62 0.12 190)';
-    if (m === 'PUB' || m === 'SUB') return 'oklch(0.62 0.11 90)';
+    if (m === 'PUB' || m === 'SUB' || m === 'PUBLISH' || m === 'SUBSCRIBE') return 'oklch(0.62 0.11 90)';
     return 'oklch(0.55 0.02 268)';
   }
 
